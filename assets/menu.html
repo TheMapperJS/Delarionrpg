@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Raylib + Ultralight Start Menu</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: rgba(10, 15, 25, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+        }
+
+        .menu-container {
+            width: 480px;
+            background: rgba(20, 30, 45, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: #a0aec0;
+            margin-bottom: 35px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 14px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.25s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            outline: none;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: #ffffff;
+            border-color: transparent;
+            box-shadow: 0 8px 20px rgba(0, 210, 255, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 4px 10px rgba(0, 210, 255, 0.2);
+        }
+
+        .status-bar {
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #718096;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Modal / Overlay */
+        .modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.92);
+            border-radius: 16px;
+            padding: 30px;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 20;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            color: #00d2ff;
+            margin-bottom: 20px;
+        }
+
+        .modal-body {
+            flex-grow: 1;
+            text-align: left;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .modal-setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-setting-row label {
+            font-weight: 600;
+        }
+
+        .modal-setting-row input[type="range"] {
+            width: 120px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            align-self: center;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="menu-container">
+        <h1 class="title">CYBER QUEST</h1>
+        <div class="subtitle">Ultralight.NET + Raylib-cs</div>
+
+        <div class="button-group">
+            <button class="btn" onclick="triggerAction('start')">
+                <span>🎮</span> Start Game
+            </button>
+            <button class="btn" onclick="openModal('settingsModal')">
+                <span>⚙️</span> Settings
+            </button>
+            <button class="btn" onclick="openModal('creditsModal')">
+                <span>📜</span> Credits
+            </button>
+            <button class="btn" onclick="triggerAction('exit')">
+                <span>🚪</span> Exit Game
+            </button>
+        </div>
+
+        <div class="status-bar">
+            <span id="status-text">Status: Ready</span>
+            <span>v1.0.0</span>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal">
+            <div class="modal-title">⚙️ Settings</div>
+            <div class="modal-body">
+                <div class="modal-setting-row">
+                    <label>Master Volume:</label>
+                    <input type="range" min="0" max="100" value="80" oninput="updateVolume(this.value)">
+                </div>
+                <div class="modal-setting-row">
+                    <label>Resolution:</label>
+                    <span>800 x 600</span>
+                </div>
+                <div class="modal-setting-row">
+                    <label>UI Renderer:</label>
+                    <span>Ultralight.NET</span>
+                </div>
+            </div>
+            <button class="back-btn" onclick="closeModal('settingsModal')">Back to Menu</button>
+        </div>
+
+        <!-- Credits Modal -->
+        <div id="creditsModal" class="modal">
+            <div class="modal-title">📜 Credits</div>
+            <div class="modal-body">
+                <p><strong>Engine:</strong> Raylib-cs (Raylib 6.0)</p>
+                <p><strong>UI Engine:</strong> UltralightNet (WebKit-based)</p>
+                <br>
+                <p>Built with C# & .NET 10</p>
+                <p>Ultra fast HTML/CSS UI overlay rendered directly onto Raylib textures.</p>
+            </div>
+            <button class="back-btn" onclick="closeModal('creditsModal')">Back to Menu</button>
+        </div>
+    </div>
+
+    <script>
+        function triggerAction(action) {
+            document.getElementById('status-text').innerText = 'Action: ' + action;
+            console.log('action:' + action);
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+            console.log('action:openModal:' + id);
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+            console.log('action:closeModal:' + id);
+        }
+
+        function updateVolume(val) {
+            console.log('action:volume:' + val);
+        }
+    </script>
+</body>
+</html>
