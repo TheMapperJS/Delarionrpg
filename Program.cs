@@ -18,6 +18,8 @@ namespace RaylibUltralightApp
     {
         private static AppState currentState = AppState.MainMenu;
         private static bool shouldExit = false;
+        private static AppSettings settings = new AppSettings();
+        private static Texture2D uiTexture;
 
         static unsafe void Main(string[] args)
         {
@@ -25,12 +27,20 @@ namespace RaylibUltralightApp
 
             Console.WriteLine("Initializing Raylib + Ultralight.NET Voxel World Engine...");
 
-            int width = 1024;
-            int height = 768;
+            // Load settings
+            settings = AppSettings.Load();
 
-            Raylib.SetConfigFlags(ConfigFlags.Msaa4xHint | ConfigFlags.VSyncHint);
+            int width = settings.Width;
+            int height = settings.Height;
+
+            Raylib.SetConfigFlags(ConfigFlags.Msaa4xHint | ConfigFlags.VSyncHint | ConfigFlags.ResizableWindow);
             Raylib.InitWindow(width, height, "CYBER QUEST - Greedy Meshed Voxel World Engine");
-            Raylib.SetTargetFPS(60);
+            Raylib.SetTargetFPS(settings.FpsCap);
+
+            if (settings.Fullscreen && !Raylib.IsWindowFullscreen())
+            {
+                Raylib.ToggleFullscreen();
+            }
 
             // Initialize 3D Camera
             Camera3D camera = new Camera3D();
@@ -86,6 +96,7 @@ namespace RaylibUltralightApp
             {
                 isPageLoaded = true;
                 Console.WriteLine("Ultralight page loading finished.");
+                SyncSettingsToUI(view);
             };
 
             // Load initial state HTML (assets/hud.html for Playing, assets/menu.html for MainMenu)
@@ -108,10 +119,7 @@ namespace RaylibUltralightApp
             }
 
             // Create Raylib texture for UI rendering
-            Image uiImage = Raylib.GenImageColor(width, height, Color.Blank);
-            Raylib.ImageFormat(ref uiImage, PixelFormat.UncompressedR8G8B8A8);
-            Texture2D uiTexture = Raylib.LoadTextureFromImage(uiImage);
-            Raylib.UnloadImage(uiImage);
+            uiTexture = CreateUITexture(width, height);
 
             // Particle system variables for menu background
             int particleCount = 60;
@@ -133,6 +141,23 @@ namespace RaylibUltralightApp
             while (!Raylib.WindowShouldClose() && !shouldExit)
             {
                 frameCount++;
+
+                // Detect dynamic window resize
+                if (Raylib.IsWindowResized() && !Raylib.IsWindowMinimized())
+                {
+                    int currentW = Raylib.GetScreenWidth();
+                    int currentH = Raylib.GetScreenHeight();
+                    if (currentW > 0 && currentH > 0 && (currentW != width || currentH != height))
+                    {
+                        width = currentW;
+                        height = currentH;
+                        settings.Width = width;
+                        settings.Height = height;
+                        settings.Save();
+
+                        OnResize(width, height, view);
+                    }
+                }
 
                 // 1. Process UI Mouse Inputs
                 int mouseX = Raylib.GetMouseX();
@@ -290,6 +315,30 @@ namespace RaylibUltralightApp
             Console.WriteLine("Application exited cleanly.");
         }
 
+        private static Texture2D CreateUITexture(int width, int height)
+        {
+            Image uiImage = Raylib.GenImageColor(width, height, Color.Blank);
+            Raylib.ImageFormat(ref uiImage, PixelFormat.UncompressedR8G8B8A8);
+            Texture2D tex = Raylib.LoadTextureFromImage(uiImage);
+            Raylib.UnloadImage(uiImage);
+            return tex;
+        }
+
+        private static void OnResize(int newWidth, int newHeight, View view)
+        {
+            Console.WriteLine($"[Window] Resized window to {newWidth}x{newHeight}");
+            view.Resize((uint)newWidth, (uint)newHeight);
+            Raylib.UnloadTexture(uiTexture);
+            uiTexture = CreateUITexture(newWidth, newHeight);
+            SyncSettingsToUI(view);
+        }
+
+        private static void SyncSettingsToUI(View view)
+        {
+            string js = $"if (typeof setSettingsUI === 'function') {{ setSettingsUI({settings.Width}, {settings.Height}, {settings.Fullscreen.ToString().ToLower()}, {settings.FpsCap}); }}";
+            view.EvaluateScript(js, out _);
+        }
+
         private static void SetAppState(AppState newState, View view)
         {
             currentState = newState;
@@ -335,6 +384,51 @@ namespace RaylibUltralightApp
                     shouldExit = true;
                 }
             }
+            else if (action.StartsWith("resolution:"))
+            {
+                string resStr = action.Substring("resolution:".Length);
+                string[] parts = resStr.Split('x');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
+                {
+                    Console.WriteLine($"[Settings] Resolution changed to {w}x{h}");
+                    settings.Width = w;
+                    settings.Height = h;
+                    settings.Save();
+
+                    Raylib.SetWindowSize(w, h);
+                    OnResize(w, h, view);
+                }
+            }
+            else if (action.StartsWith("fullscreen:"))
+            {
+                string fsStr = action.Substring("fullscreen:".Length);
+                if (bool.TryParse(fsStr, out bool fs))
+                {
+                    Console.WriteLine($"[Settings] Fullscreen set to {fs}");
+                    settings.Fullscreen = fs;
+                    settings.Save();
+
+                    bool isCurrentlyFS = Raylib.IsWindowFullscreen();
+                    if (fs != isCurrentlyFS)
+                    {
+                        Raylib.ToggleFullscreen();
+                        int w = Raylib.GetScreenWidth();
+                        int h = Raylib.GetScreenHeight();
+                        OnResize(w, h, view);
+                    }
+                }
+            }
+            else if (action.StartsWith("fpsCap:"))
+            {
+                string fpsStr = action.Substring("fpsCap:".Length);
+                if (int.TryParse(fpsStr, out int fps))
+                {
+                    Console.WriteLine($"[Settings] FPS cap changed to {fps}");
+                    settings.FpsCap = fps;
+                    settings.Save();
+                    Raylib.SetTargetFPS(fps);
+                }
+            }
             else if (action.StartsWith("volume:"))
             {
                 string volStr = action.Substring("volume:".Length);
@@ -354,6 +448,7 @@ namespace RaylibUltralightApp
             {
                 string modalId = action.Substring("openModal:".Length);
                 Console.WriteLine($"[RPG UI] Opened RPG panel modal: {modalId}");
+                SyncSettingsToUI(view);
             }
             else if (action.StartsWith("closeModal:"))
             {
