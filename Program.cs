@@ -323,7 +323,7 @@ namespace RaylibUltralightApp
             int panelX = 10;
             int panelY = 10;
             int panelW = 340;
-            int panelH = 170;
+            int panelH = 190;
 
             Raylib.DrawRectangle(panelX, panelY, panelW, panelH, new Color(0, 0, 0, 180));
             Raylib.DrawRectangleLines(panelX, panelY, panelW, panelH, new Color(0, 220, 255, 200));
@@ -334,7 +334,8 @@ namespace RaylibUltralightApp
             Raylib.DrawText($"Active Chunks: {world.TotalLoadedChunks} (Render Dist: {world.RenderDistance})", panelX + 12, panelY + 70, 14, Color.SkyBlue);
             Raylib.DrawText($"Raw Quads: {world.TotalRawQuads:N0}", panelX + 12, panelY + 90, 14, Color.LightGray);
             Raylib.DrawText($"Greedy Quads: {world.TotalGreedyQuads:N0}", panelX + 12, panelY + 110, 14, Color.Yellow);
-            Raylib.DrawText($"Quad Reduction: {world.QuadReductionPercentage:F1}% saved!", panelX + 12, panelY + 132, 15, Color.Green);
+            Raylib.DrawText($"Quad Reduction: {world.QuadReductionPercentage:F1}% saved!", panelX + 12, panelY + 130, 15, Color.Green);
+            Raylib.DrawText("Ambient Occlusion: ON (4-Corner AO)", panelX + 12, panelY + 152, 14, Color.Orange);
 
             Raylib.DrawText("[WASD/Space/Ctrl] Move Camera  |  [ESC] Menu", 10, Raylib.GetScreenHeight() - 25, 14, Color.White);
         }

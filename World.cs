@@ -51,6 +51,23 @@ namespace RaylibUltralightApp
             }
         }
 
+        public BlockType GetBlock(int wx, int wy, int wz)
+        {
+            if (wy < 0 || wy >= Chunk.SIZE_Y) return BlockType.Air;
+
+            int cx = (int)Math.Floor((double)wx / Chunk.SIZE_X);
+            int cz = (int)Math.Floor((double)wz / Chunk.SIZE_Z);
+
+            if (chunks.TryGetValue((cx, cz), out var chunk))
+            {
+                int lx = wx - cx * Chunk.SIZE_X;
+                int lz = wz - cz * Chunk.SIZE_Z;
+                return chunk.GetBlock(lx, wy, lz);
+            }
+
+            return Chunk.GetTerrainBlock(wx, wy, wz);
+        }
+
         public void Update(Vector3 playerPosition)
         {
             int centerCX = (int)Math.Floor(playerPosition.X / Chunk.SIZE_X);
@@ -111,7 +128,7 @@ namespace RaylibUltralightApp
                 if (loadedThisFrame >= MaxChunksPerFrame) break;
 
                 var key = (cand.CX, cand.CZ);
-                Chunk newChunk = new Chunk(cand.CX, cand.CZ);
+                Chunk newChunk = new Chunk(cand.CX, cand.CZ, this);
                 chunks[key] = newChunk;
                 loadedThisFrame++;
             }
