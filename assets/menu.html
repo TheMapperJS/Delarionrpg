@@ -36,9 +36,11 @@
 
         /* Main Container */
         .rpg-frame {
-            width: 960px;
-            height: 680px;
-            background: linear-gradient(180deg, rgba(22, 18, 28, 0.92) 0%, rgba(12, 10, 18, 0.96) 100%);
+            width: 90vw;
+            max-width: 960px;
+            height: 90vh;
+            max-height: 680px;
+            background: linear-gradient(180deg, rgba(22, 18, 28, 0.96) 0%, rgba(12, 10, 18, 0.98) 100%);
             border: 3px solid #7c6238;
             outline: 2px solid #2a1f14;
             border-radius: 12px;
@@ -335,9 +337,10 @@
             display: none;
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(8, 5, 12, 0.92);
+            background-color: #120e1a !important;
+            background: #120e1a !important;
             border-radius: 10px;
-            z-index: 50;
+            z-index: 100;
             padding: 30px;
             flex-direction: column;
             animation: fadeIn 0.25s ease-out;
@@ -460,14 +463,26 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
+            padding: 14px 10px;
             border-bottom: 1px solid rgba(212, 175, 55, 0.15);
             font-size: 0.95rem;
         }
 
-        .setting-row input[type="range"] {
+        .setting-row select, .setting-row input[type="range"] {
             accent-color: #d4af37;
-            width: 160px;
+            background: #1a1424;
+            color: #f5e8c7;
+            border: 1px solid #8c6f3d;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-family: 'Cinzel', serif;
+        }
+
+        .setting-row input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #d4af37;
+            cursor: pointer;
         }
 
         .back-btn {
@@ -693,24 +708,30 @@
             <div class="modal-title"><span>⚙️</span> Realm Settings</div>
             <div class="modal-body">
                 <div class="setting-row">
+                    <label>Screen Resolution:</label>
+                    <select id="resolutionSelect" onchange="updateResolution(this.value)">
+                        <option value="1024x768">1024 x 768</option>
+                        <option value="1280x720">1280 x 720</option>
+                        <option value="1280x800">1280 x 800</option>
+                        <option value="1600x900">1600 x 900</option>
+                        <option value="1920x1080">1920 x 1080</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>Full Screen:</label>
+                    <input type="checkbox" id="fullscreenCheckbox" onchange="toggleFullscreen(this.checked)">
+                </div>
+                <div class="setting-row">
+                    <label>FPS Cap: <span id="fpsVal" style="color:#ffd700;">60</span></label>
+                    <input type="range" id="fpsSlider" min="30" max="240" step="10" value="60" oninput="updateFps(this.value)">
+                </div>
+                <div class="setting-row">
                     <label>Master Audio Volume:</label>
                     <input type="range" min="0" max="100" value="85" oninput="updateVolume(this.value)">
                 </div>
                 <div class="setting-row">
-                    <label>Music Volume:</label>
-                    <input type="range" min="0" max="100" value="70">
-                </div>
-                <div class="setting-row">
                     <label>Voxel Render Distance:</label>
                     <span style="color:#ffd700;">4 Chunks (64x64)</span>
-                </div>
-                <div class="setting-row">
-                    <label>Ambient Occlusion Shading:</label>
-                    <span style="color:#50e3c2;">Enabled (4-Corner)</span>
-                </div>
-                <div class="setting-row">
-                    <label>UI Renderer:</label>
-                    <span>UltralightNet HTML5</span>
                 </div>
             </div>
             <button class="back-btn" onclick="closeModal('settingsModal')">Save & Return</button>
@@ -736,6 +757,53 @@
 
         function updateVolume(val) {
             console.log('action:volume:' + val);
+        }
+
+        function updateResolution(res) {
+            console.log('action:resolution:' + res);
+        }
+
+        function toggleFullscreen(checked) {
+            console.log('action:fullscreen:' + checked);
+        }
+
+        function updateFps(val) {
+            document.getElementById('fpsVal').innerText = val;
+            console.log('action:fpsCap:' + val);
+        }
+
+        function setSettingsUI(width, height, fullscreen, fpsCap) {
+            var resSelect = document.getElementById('resolutionSelect');
+            var resStr = width + 'x' + height;
+            if (resSelect) {
+                var found = false;
+                for (var i = 0; i < resSelect.options.length; i++) {
+                    if (resSelect.options[i].value === resStr) {
+                        resSelect.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    var opt = document.createElement('option');
+                    opt.value = resStr;
+                    opt.innerHTML = width + ' x ' + height;
+                    resSelect.appendChild(opt);
+                    resSelect.value = resStr;
+                }
+            }
+            var fsCb = document.getElementById('fullscreenCheckbox');
+            if (fsCb) {
+                fsCb.checked = fullscreen;
+            }
+            var fpsSl = document.getElementById('fpsSlider');
+            var fpsVal = document.getElementById('fpsVal');
+            if (fpsSl) {
+                fpsSl.value = fpsCap;
+            }
+            if (fpsVal) {
+                fpsVal.innerText = fpsCap;
+            }
         }
     </script>
 </body>
