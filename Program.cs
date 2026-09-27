@@ -146,9 +146,9 @@ namespace RaylibUltralightApp
                 int mouseX = Raylib.GetMouseX();
                 int mouseY = Raylib.GetMouseY();
 
-                if (currentState == AppState.MainMenu)
+                if (currentState == AppState.Playing)
                 {
-                    // Forward Mouse Events to Ultralight Menu
+                    // Forward Mouse Events to Ultralight RPG HUD
                     view.FireMouseEvent(new ULMouseEvent
                     {
                         Type = ULMouseEventType.MouseMoved,
@@ -164,6 +164,13 @@ namespace RaylibUltralightApp
                     if (Raylib.IsMouseButtonReleased(MouseButton.Left))
                     {
                         view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
+                    }
+                }
+                else if (currentState == AppState.MainMenu)
+                {
+                    if (Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space) || Raylib.IsMouseButtonPressed(MouseButton.Left))
+                    {
+                        currentState = AppState.Playing;
                     }
                 }
 
@@ -270,6 +277,9 @@ namespace RaylibUltralightApp
                     Raylib.DrawGrid(20, 10.0f);
                     Raylib.EndMode3D();
 
+                    // Draw RPG HUD Overlay (Ultralight HTML UI)
+                    Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
+
                     // Draw Voxel HUD Overlay
                     DrawHUD(world, camera);
                 }
@@ -278,7 +288,7 @@ namespace RaylibUltralightApp
                     // Main Menu Background Particles & UI
                     Raylib.ClearBackground(new Color(15, 20, 32, 255));
                     DrawBackground(width, height, particleX, particleY, particleCount, frameCount);
-                    Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
+                    DrawMainMenu(width, height);
                 }
 
                 Raylib.EndDrawing();
@@ -303,13 +313,13 @@ namespace RaylibUltralightApp
         {
             if (action == "start")
             {
-                Console.WriteLine("[RPG UI] 'Enter Voxel Realm' clicked! Switching state to Playing.");
+                Console.WriteLine("[RPG UI] 'Enter Voxel Realm' clicked!");
                 currentState = AppState.Playing;
             }
             else if (action == "exit")
             {
-                Console.WriteLine("[RPG UI] 'Abandon Realm' clicked! Closing application.");
-                shouldExit = true;
+                Console.WriteLine("[RPG UI] 'Abandon Realm' clicked! Returning to Main Menu.");
+                currentState = AppState.MainMenu;
             }
             else if (action.StartsWith("volume:"))
             {
@@ -340,6 +350,27 @@ namespace RaylibUltralightApp
             {
                 Console.WriteLine($"[RPG UI] Action received: {action}");
             }
+        }
+
+        private static void DrawMainMenu(int width, int height)
+        {
+            string title = "CHRONICLES OF AETHELGARD";
+            string subtitle = "Voxel Realm Engine";
+            string prompt = "Press [ENTER] or CLICK to Enter Voxel Realm";
+
+            int titleSize = 40;
+            int titleWidth = Raylib.MeasureText(title, titleSize);
+            Raylib.DrawText(title, (width - titleWidth) / 2, height / 3, titleSize, Color.Gold);
+
+            int subSize = 20;
+            int subWidth = Raylib.MeasureText(subtitle, subSize);
+            Raylib.DrawText(subtitle, (width - subWidth) / 2, height / 3 + 55, subSize, Color.SkyBlue);
+
+            int promptSize = 18;
+            int promptWidth = Raylib.MeasureText(prompt, promptSize);
+            byte alpha = (byte)(180 + Math.Sin(Raylib.GetTime() * 4.0) * 75);
+            Color promptColor = new Color((byte)255, (byte)215, (byte)0, alpha);
+            Raylib.DrawText(prompt, (width - promptWidth) / 2, height / 2 + 80, promptSize, promptColor);
         }
 
         private static void DrawHUD(World world, Camera3D camera)
