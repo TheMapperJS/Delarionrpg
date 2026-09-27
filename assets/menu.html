@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Raylib + Ultralight Start Menu</title>
+    <title>Chronicles of Aethelgard - RPG UI</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=MedievalSharp&family=Metamorphous&display=swap');
+
         * {
             box-sizing: border-box;
             user-select: none;
@@ -15,232 +17,721 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: rgba(10, 15, 25, 0.4);
+            font-family: 'Cinzel', 'Georgia', serif;
+            background: radial-gradient(circle at center, rgba(18, 12, 28, 0.6) 0%, rgba(5, 3, 10, 0.95) 100%);
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #ffffff;
+            color: #e2d3b2;
         }
 
-        .menu-container {
-            width: 480px;
-            background: rgba(20, 30, 45, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 16px;
-            padding: 40px 30px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
-            text-align: center;
-            position: relative;
-            z-index: 10;
+        /* Ambient particle glow overlay */
+        .ambient-vignette {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85);
+            z-index: 1;
         }
 
-        .title {
-            font-size: 2.8rem;
-            font-weight: 800;
-            letter-spacing: 2px;
-            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-
-        .subtitle {
-            font-size: 0.95rem;
-            color: #a0aec0;
-            margin-bottom: 35px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .button-group {
+        /* Main Container */
+        .rpg-frame {
+            width: 960px;
+            height: 680px;
+            background: linear-gradient(180deg, rgba(22, 18, 28, 0.92) 0%, rgba(12, 10, 18, 0.96) 100%);
+            border: 3px solid #7c6238;
+            outline: 2px solid #2a1f14;
+            border-radius: 12px;
+            box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(212, 175, 55, 0.15);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            position: relative;
+            z-index: 10;
+            padding: 24px 28px;
         }
 
-        .btn {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 10px;
-            padding: 14px 24px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #e2e8f0;
-            cursor: pointer;
-            transition: all 0.25s ease-in-out;
+        /* Gold Filigree Borders & Corners */
+        .rpg-frame::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        .corner-ornament {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 2px solid #d4af37;
+            pointer-events: none;
+        }
+        .corner-tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+        .corner-tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+        .corner-br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+        /* Header Title Banner */
+        .rpg-header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .rpg-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.6rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(180deg, #fff2a8 0%, #d4af37 50%, #aa7c11 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            text-transform: uppercase;
+        }
+
+        .rpg-subtitle {
+            font-size: 0.85rem;
+            letter-spacing: 3px;
+            color: #9a8866;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .header-divider {
+            width: 80%;
+            height: 2px;
+            margin: 12px auto 0;
+            background: linear-gradient(90deg, transparent 0%, #d4af37 50%, transparent 100%);
+        }
+
+        /* Content Layout Grid */
+        .rpg-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+            flex-grow: 1;
+        }
+
+        /* Left Column: Hero Character Card */
+        .hero-card {
+            background: rgba(15, 12, 20, 0.85);
+            border: 1px solid #5a4527;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hero-profile {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed rgba(212, 175, 55, 0.25);
+        }
+
+        .hero-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid #d4af37;
+            background: radial-gradient(circle, #3a2211 0%, #150d08 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            font-size: 1.8rem;
+            box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+        }
+
+        .hero-info h2 {
+            font-size: 1.15rem;
+            color: #f1e4c3;
+            font-weight: 700;
+        }
+
+        .hero-info p {
+            font-size: 0.8rem;
+            color: #a89470;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: #d4af37;
+            color: #110c06;
+            font-size: 0.65rem;
+            font-weight: 900;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Status Bars */
+        .status-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #c9b48c;
+            font-weight: 600;
+        }
+
+        .bar-track {
+            height: 12px;
+            background: #120e17;
+            border: 1px solid #4a3820;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .hp-bar { background: linear-gradient(90deg, #8b0000 0%, #ff3333 100%); width: 85%; }
+        .mp-bar { background: linear-gradient(90deg, #0033aa 0%, #3388ff 100%); width: 60%; }
+        .xp-bar { background: linear-gradient(90deg, #6600aa 0%, #bb33ff 100%); width: 72%; }
+
+        /* Hero Stats Grid */
+        .hero-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+            background: rgba(8, 6, 12, 0.6);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(212, 175, 55, 0.15);
+        }
+
+        .stat-item {
+            font-size: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-name { color: #88785e; }
+        .stat-val { color: #ffd700; font-weight: 700; }
+
+        /* Currency Inventory */
+        .currency-bar {
+            display: flex;
+            justify-content: space-around;
+            background: rgba(25, 18, 10, 0.8);
+            border: 1px solid #7c6238;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .gold { color: #ffdb4d; }
+        .gems { color: #50e3c2; }
+
+        /* Right Column: Menu Actions */
+        .menu-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            justify-content: center;
+            padding: 10px 20px;
+        }
+
+        .rpg-btn {
+            position: relative;
+            background: linear-gradient(180deg, #3d2c18 0%, #1f150a 100%);
+            border: 2px solid #8c6f3d;
+            border-radius: 8px;
+            padding: 16px 24px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #f5e8c7;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
             outline: none;
         }
 
-        .btn:hover {
-            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+        .rpg-btn::before {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        .rpg-btn .btn-icon {
+            font-size: 1.5rem;
+            width: 32px;
+            text-align: center;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+        }
+
+        .rpg-btn:hover {
+            background: linear-gradient(180deg, #664c24 0%, #362512 100%);
+            border-color: #ffd700;
             color: #ffffff;
-            border-color: transparent;
-            box-shadow: 0 8px 20px rgba(0, 210, 255, 0.35);
-            transform: translateY(-2px);
+            box-shadow: 0 0 18px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transform: translateX(4px);
         }
 
-        .btn:active {
-            transform: translateY(1px);
-            box-shadow: 0 4px 10px rgba(0, 210, 255, 0.2);
+        .rpg-btn:active {
+            transform: translateX(2px) translateY(1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
         }
 
-        .status-bar {
-            margin-top: 30px;
-            font-size: 0.85rem;
-            color: #718096;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding-top: 15px;
+        .rpg-btn-primary {
+            background: linear-gradient(180deg, #7a1b1b 0%, #3d0909 100%);
+            border-color: #d14141;
+            color: #fff2cc;
+        }
+
+        .rpg-btn-primary:hover {
+            background: linear-gradient(180deg, #a82828 0%, #590f0f 100%);
+            border-color: #ff7777;
+            box-shadow: 0 0 22px rgba(255, 50, 50, 0.5);
+        }
+
+        /* Footer Status Bar */
+        .rpg-footer {
+            margin-top: 18px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(212, 175, 55, 0.2);
             display: flex;
             justify-content: space-between;
+            font-size: 0.75rem;
+            color: #7a6a50;
         }
 
-        /* Modal / Overlay */
-        .modal {
+        /* MODAL DIALOGS */
+        .modal-overlay {
             display: none;
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.92);
-            border-radius: 16px;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(8, 5, 12, 0.92);
+            border-radius: 10px;
+            z-index: 50;
             padding: 30px;
             flex-direction: column;
-            justify-content: space-between;
-            z-index: 20;
+            animation: fadeIn 0.25s ease-out;
         }
 
-        .modal.active {
+        .modal-overlay.active {
             display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .modal-title {
-            font-size: 1.8rem;
-            color: #00d2ff;
-            margin-bottom: 20px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffd700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #7c6238;
+            padding-bottom: 8px;
         }
 
         .modal-body {
             flex-grow: 1;
-            text-align: left;
-            font-size: 0.95rem;
-            color: #cbd5e1;
-            line-height: 1.6;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            padding-right: 8px;
         }
 
-        .modal-setting-row {
+        /* Inventory Grid */
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .inv-slot {
+            width: 70px;
+            height: 70px;
+            background: rgba(20, 15, 25, 0.8);
+            border: 2px solid #5a4527;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .inv-slot:hover {
+            border-color: #ffd700;
+            background: rgba(45, 32, 55, 0.9);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+
+        .inv-icon {
+            font-size: 1.8rem;
+        }
+
+        .inv-name {
+            font-size: 0.6rem;
+            color: #d4af37;
+            margin-top: 2px;
+            text-align: center;
+        }
+
+        .inv-qty {
+            position: absolute;
+            bottom: 3px;
+            right: 5px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        /* Quest List */
+        .quest-item {
+            background: rgba(25, 20, 32, 0.7);
+            border: 1px solid #5a4527;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .quest-item:hover {
+            border-color: #d4af37;
+            background: rgba(40, 30, 50, 0.8);
+        }
+
+        .quest-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            color: #f1e4c3;
+            margin-bottom: 4px;
+        }
+
+        .quest-desc {
+            font-size: 0.8rem;
+            color: #a89470;
+            line-height: 1.4;
+        }
+
+        .quest-reward {
+            font-size: 0.75rem;
+            color: #ffdb4d;
+            margin-top: 6px;
+        }
+
+        /* Settings Rows */
+        .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+            font-size: 0.95rem;
         }
 
-        .modal-setting-row label {
-            font-weight: 600;
-        }
-
-        .modal-setting-row input[type="range"] {
-            width: 120px;
+        .setting-row input[type="range"] {
+            accent-color: #d4af37;
+            width: 160px;
         }
 
         .back-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
             align-self: center;
-            transition: background 0.2s;
+            background: linear-gradient(180deg, #4a3820 0%, #241a0d 100%);
+            border: 1px solid #d4af37;
+            color: #f5e8c7;
+            padding: 10px 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: all 0.2s;
         }
 
         .back-btn:hover {
-            background: rgba(255, 255, 255, 0.25);
+            background: linear-gradient(180deg, #6e5330 0%, #3d2b16 100%);
+            box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
         }
     </style>
 </head>
 <body>
 
-    <div class="menu-container">
-        <h1 class="title">CYBER QUEST</h1>
-        <div class="subtitle">Ultralight.NET + Raylib-cs</div>
+    <div class="ambient-vignette"></div>
 
-        <div class="button-group">
-            <button class="btn" onclick="triggerAction('start')">
-                <span>🎮</span> Start Game
-            </button>
-            <button class="btn" onclick="openModal('settingsModal')">
-                <span>⚙️</span> Settings
-            </button>
-            <button class="btn" onclick="openModal('creditsModal')">
-                <span>📜</span> Credits
-            </button>
-            <button class="btn" onclick="triggerAction('exit')">
-                <span>🚪</span> Exit Game
-            </button>
+    <div class="rpg-frame">
+        <div class="corner-ornament corner-tl"></div>
+        <div class="corner-ornament corner-tr"></div>
+        <div class="corner-ornament corner-bl"></div>
+        <div class="corner-ornament corner-br"></div>
+
+        <!-- Header Banner -->
+        <div class="rpg-header">
+            <h1 class="rpg-title">Chronicles of Aethelgard</h1>
+            <div class="rpg-subtitle">Voxel Realm & Heroic Quest</div>
+            <div class="header-divider"></div>
         </div>
 
-        <div class="status-bar">
-            <span id="status-text">Status: Ready</span>
-            <span>v1.0.0</span>
+        <!-- Content Grid -->
+        <div class="rpg-content">
+            <!-- Left Hero Profile Panel -->
+            <div class="hero-card">
+                <div>
+                    <div class="hero-profile">
+                        <div class="hero-avatar">🧙‍♂️</div>
+                        <div class="hero-info">
+                            <h2>Valerius the Grand</h2>
+                            <p>Level 42 High Mage</p>
+                            <span class="hero-badge">Order of Arcana</span>
+                        </div>
+                    </div>
+
+                    <!-- Bars -->
+                    <div class="status-group">
+                        <div class="bar-container">
+                            <div class="bar-label">
+                                <span>Health Points</span>
+                                <span>850 / 1000</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill hp-bar"></div>
+                            </div>
+                        </div>
+
+                        <div class="bar-container">
+                            <div class="bar-label">
+                                <span>Mana Pool</span>
+                                <span>420 / 700</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill mp-bar"></div>
+                            </div>
+                        </div>
+
+                        <div class="bar-container">
+                            <div class="bar-label">
+                                <span>Experience</span>
+                                <span>7,200 / 10,000</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill xp-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attributes -->
+                    <div class="hero-stats">
+                        <div class="stat-item"><span class="stat-name">STR:</span><span class="stat-val">24</span></div>
+                        <div class="stat-item"><span class="stat-name">DEX:</span><span class="stat-val">38</span></div>
+                        <div class="stat-item"><span class="stat-name">INT:</span><span class="stat-val">95</span></div>
+                        <div class="stat-item"><span class="stat-name">WIS:</span><span class="stat-val">82</span></div>
+                    </div>
+                </div>
+
+                <!-- Currency -->
+                <div class="currency-bar">
+                    <span class="gold">🪙 14,850 Gold</span>
+                    <span class="gems">💎 320 Gems</span>
+                </div>
+            </div>
+
+            <!-- Right Menu Buttons -->
+            <div class="menu-actions">
+                <button class="rpg-btn rpg-btn-primary" onclick="triggerAction('start')">
+                    <span class="btn-icon">⚔️</span>
+                    <span>Enter Voxel Realm</span>
+                </button>
+                <button class="rpg-btn" onclick="openModal('inventoryModal')">
+                    <span class="btn-icon">🎒</span>
+                    <span>Hero's Inventory & Relics</span>
+                </button>
+                <button class="rpg-btn" onclick="openModal('questsModal')">
+                    <span class="btn-icon">📜</span>
+                    <span>Quest Codex & Lore</span>
+                </button>
+                <button class="rpg-btn" onclick="openModal('settingsModal')">
+                    <span class="btn-icon">⚙️</span>
+                    <span>Realm Settings</span>
+                </button>
+                <button class="rpg-btn" onclick="triggerAction('exit')">
+                    <span class="btn-icon">🚪</span>
+                    <span>Abandon Realm</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="rpg-footer">
+            <span id="status-text">Status: Champion ready for campaign</span>
+            <span>UltralightNet HTML5 UI Engine v1.3</span>
+        </div>
+
+        <!-- Inventory Modal -->
+        <div id="inventoryModal" class="modal-overlay">
+            <div class="modal-title"><span>🎒</span> Hero's Inventory & Relics</div>
+            <div class="modal-body">
+                <p style="margin-bottom:12px; font-size:0.85rem; color:#a89470;">Select relics to inspect or equip active enchantments:</p>
+                <div class="inventory-grid">
+                    <div class="inv-slot" onclick="triggerAction('equipItem:excalibur')">
+                        <span class="inv-icon">🗡️</span>
+                        <span class="inv-name">Sunfire Blade</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:shield')">
+                        <span class="inv-icon">🛡️</span>
+                        <span class="inv-name">Dragon Aegis</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:potion')">
+                        <span class="inv-icon">🧪</span>
+                        <span class="inv-name">Elixir Life</span>
+                        <span class="inv-qty">x12</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:mana')">
+                        <span class="inv-icon">💧</span>
+                        <span class="inv-name">Mana Potion</span>
+                        <span class="inv-qty">x8</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:ring')">
+                        <span class="inv-icon">💍</span>
+                        <span class="inv-name">Arcane Ring</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:staff')">
+                        <span class="inv-icon">🪄</span>
+                        <span class="inv-name">Elder Wand</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:helmet')">
+                        <span class="inv-icon">🪖</span>
+                        <span class="inv-name">Crown of Light</span>
+                    </div>
+                    <div class="inv-slot" onclick="triggerAction('equipItem:book')">
+                        <span class="inv-icon">📖</span>
+                        <span class="inv-name">Spell Tome</span>
+                    </div>
+                    <div class="inv-slot">
+                        <span class="inv-icon">🔒</span>
+                        <span class="inv-name">Locked</span>
+                    </div>
+                    <div class="inv-slot">
+                        <span class="inv-icon">🔒</span>
+                        <span class="inv-name">Locked</span>
+                    </div>
+                </div>
+            </div>
+            <button class="back-btn" onclick="closeModal('inventoryModal')">Close Codex</button>
+        </div>
+
+        <!-- Quests Modal -->
+        <div id="questsModal" class="modal-overlay">
+            <div class="modal-title"><span>📜</span> Active Quests</div>
+            <div class="modal-body">
+                <div class="quest-item" onclick="triggerAction('quests:greedyMeshing')">
+                    <div class="quest-header">
+                        <span>The Greedy Meshing Ritual</span>
+                        <span style="color:#50e3c2;">[In Progress]</span>
+                    </div>
+                    <div class="quest-desc">Optimize voxel chunks across 3D space by merging quads to boost render performance.</div>
+                    <div class="quest-reward">Reward: +2,500 EXP, 500 Gold</div>
+                </div>
+
+                <div class="quest-item" onclick="triggerAction('quests:dungeonBoss')">
+                    <div class="quest-header">
+                        <span>Voxel Citadel Assault</span>
+                        <span style="color:#ffdb4d;">[Main Quest]</span>
+                    </div>
+                    <div class="quest-desc">Explore deep underground caverns and defeat the Obsidian Golem.</div>
+                    <div class="quest-reward">Reward: Legendary Dragon Aegis, 5,000 Gold</div>
+                </div>
+
+                <div class="quest-item" onclick="triggerAction('quests:ambientOcclusion')">
+                    <div class="quest-header">
+                        <span>Master of Shadows</span>
+                        <span style="color:#50e3c2;">[Completed]</span>
+                    </div>
+                    <div class="quest-desc">Implement 4-Corner Ambient Occlusion corner shading for block lighting.</div>
+                    <div class="quest-reward">Reward: +1,000 EXP</div>
+                </div>
+            </div>
+            <button class="back-btn" onclick="closeModal('questsModal')">Close Quests</button>
         </div>
 
         <!-- Settings Modal -->
-        <div id="settingsModal" class="modal">
-            <div class="modal-title">⚙️ Settings</div>
+        <div id="settingsModal" class="modal-overlay">
+            <div class="modal-title"><span>⚙️</span> Realm Settings</div>
             <div class="modal-body">
-                <div class="modal-setting-row">
-                    <label>Master Volume:</label>
-                    <input type="range" min="0" max="100" value="80" oninput="updateVolume(this.value)">
+                <div class="setting-row">
+                    <label>Master Audio Volume:</label>
+                    <input type="range" min="0" max="100" value="85" oninput="updateVolume(this.value)">
                 </div>
-                <div class="modal-setting-row">
-                    <label>Resolution:</label>
-                    <span>800 x 600</span>
+                <div class="setting-row">
+                    <label>Music Volume:</label>
+                    <input type="range" min="0" max="100" value="70">
                 </div>
-                <div class="modal-setting-row">
+                <div class="setting-row">
+                    <label>Voxel Render Distance:</label>
+                    <span style="color:#ffd700;">4 Chunks (64x64)</span>
+                </div>
+                <div class="setting-row">
+                    <label>Ambient Occlusion Shading:</label>
+                    <span style="color:#50e3c2;">Enabled (4-Corner)</span>
+                </div>
+                <div class="setting-row">
                     <label>UI Renderer:</label>
-                    <span>Ultralight.NET</span>
+                    <span>UltralightNet HTML5</span>
                 </div>
             </div>
-            <button class="back-btn" onclick="closeModal('settingsModal')">Back to Menu</button>
+            <button class="back-btn" onclick="closeModal('settingsModal')">Save & Return</button>
         </div>
 
-        <!-- Credits Modal -->
-        <div id="creditsModal" class="modal">
-            <div class="modal-title">📜 Credits</div>
-            <div class="modal-body">
-                <p><strong>Engine:</strong> Raylib-cs (Raylib 6.0)</p>
-                <p><strong>UI Engine:</strong> UltralightNet (WebKit-based)</p>
-                <br>
-                <p>Built with C# & .NET 10</p>
-                <p>Ultra fast HTML/CSS UI overlay rendered directly onto Raylib textures.</p>
-            </div>
-            <button class="back-btn" onclick="closeModal('creditsModal')">Back to Menu</button>
-        </div>
     </div>
 
     <script>
         function triggerAction(action) {
-            document.getElementById('status-text').innerText = 'Action: ' + action;
+            document.getElementById('status-text').innerText = 'Action executed: ' + action;
             console.log('action:' + action);
         }
 
         function openModal(id) {
             document.getElementById(id).classList.add('active');
-            console.log('action:openModal:' + id);
+            triggerAction('openModal:' + id);
         }
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('active');
-            console.log('action:closeModal:' + id);
+            triggerAction('closeModal:' + id);
         }
 
         function updateVolume(val) {
