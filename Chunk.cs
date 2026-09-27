@@ -175,37 +175,47 @@ namespace RaylibUltralightApp
 
                 BlockFace face;
                 Vector3 normal;
+                float shade = 1.0f;
 
                 switch (quad.Direction)
                 {
                     case 0: // -Z
                         face = BlockFace.Side;
                         normal = new Vector3(0, 0, -1);
+                        shade = 0.85f;
                         break;
                     case 1: // +Z
                         face = BlockFace.Side;
                         normal = new Vector3(0, 0, 1);
+                        shade = 0.85f;
                         break;
                     case 2: // -X
                         face = BlockFace.Side;
                         normal = new Vector3(-1, 0, 0);
+                        shade = 0.70f;
                         break;
                     case 3: // +X
                         face = BlockFace.Side;
                         normal = new Vector3(1, 0, 0);
+                        shade = 0.70f;
                         break;
                     case 4: // -Y
                         face = BlockFace.Bottom;
                         normal = new Vector3(0, -1, 0);
+                        shade = 0.50f;
                         break;
                     case 5: // +Y
                     default:
                         face = BlockFace.Top;
                         normal = new Vector3(0, 1, 0);
+                        shade = 1.0f;
                         break;
                 }
 
                 Color col = BlockHelper.GetBlockColor(quad.Block, face);
+                col.R = (byte)Math.Clamp((int)(col.R * shade), 0, 255);
+                col.G = (byte)Math.Clamp((int)(col.G * shade), 0, 255);
+                col.B = (byte)Math.Clamp((int)(col.B * shade), 0, 255);
 
                 // Define 4 quad vertices
                 Vector3 v0, v1, v2, v3;
