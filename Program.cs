@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Numerics;
 using System.Threading;
 using Raylib_cs;
 using UltralightNet;
@@ -22,16 +23,37 @@ namespace RaylibUltralightApp
         {
             bool screenshotArg = Array.Exists(args, arg => arg.Equals("--screenshot", StringComparison.OrdinalIgnoreCase) || arg.Equals("-s", StringComparison.OrdinalIgnoreCase));
 
-            Console.WriteLine("Initializing Raylib + Ultralight.NET App...");
+            Console.WriteLine("Initializing Raylib + Ultralight.NET Voxel World Engine...");
 
-            int width = 800;
-            int height = 600;
+            int width = 1024;
+            int height = 768;
 
             Raylib.SetConfigFlags(ConfigFlags.Msaa4xHint | ConfigFlags.VSyncHint);
-            Raylib.InitWindow(width, height, "CYBER QUEST - Raylib-cs + Ultralight.NET Start Menu");
+            Raylib.InitWindow(width, height, "CYBER QUEST - Greedy Meshed Voxel World Engine");
             Raylib.SetTargetFPS(60);
 
-            // Initialize UltralightNet
+            // Initialize 3D Camera
+            Camera3D camera = new Camera3D();
+            camera.Position = new Vector3(32.0f, 22.0f, 32.0f);
+            camera.Target = new Vector3(33.0f, 21.8f, 35.0f);
+            camera.Up = new Vector3(0.0f, 1.0f, 0.0f);
+            camera.FovY = 65.0f;
+            camera.Projection = CameraProjection.Perspective;
+
+            // Initialize Voxel World
+            World world = new World
+            {
+                RenderDistance = 4,
+                MaxChunksPerFrame = 4
+            };
+
+            // Pre-populate initial chunks around starting position
+            for (int i = 0; i < 25; i++)
+            {
+                world.Update(camera.Position);
+            }
+
+            // Initialize UltralightNet UI
             AppCoreMethods.SetPlatformFontLoader();
             var ulConfig = new ULConfig
             {
@@ -68,7 +90,7 @@ namespace RaylibUltralightApp
             else
             {
                 Console.WriteLine("Warning: assets/menu.html not found, fallback to default HTML.");
-                view.HTML = "<html><body style='color:white;background:rgba(0,0,0,0.8);'><h1>CYBER QUEST</h1><button onclick='console.log(\"action:start\")'>Start</button></body></html>";
+                view.HTML = "<html><body style='color:white;background:rgba(0,0,0,0.8);'><h1>VOXEL QUEST</h1><button onclick='console.log(\"action:start\")'>Start</button></body></html>";
             }
 
             bool isPageLoaded = false;
@@ -93,7 +115,7 @@ namespace RaylibUltralightApp
             Texture2D uiTexture = Raylib.LoadTextureFromImage(uiImage);
             Raylib.UnloadImage(uiImage);
 
-            // Particle system variables for background
+            // Particle system variables for menu background
             int particleCount = 60;
             float[] particleX = new float[particleCount];
             float[] particleY = new float[particleCount];
@@ -109,56 +131,44 @@ namespace RaylibUltralightApp
 
             int frameCount = 0;
 
+            // Automatically enter Playing mode when --screenshot is passed to showcase 3D Voxel world
+            if (screenshotArg)
+            {
+                currentState = AppState.Playing;
+            }
+
             // Main Application Loop
             while (!Raylib.WindowShouldClose() && !shouldExit)
             {
                 frameCount++;
 
-                // 1. Process Inputs
+                // 1. Process UI Inputs
                 int mouseX = Raylib.GetMouseX();
                 int mouseY = Raylib.GetMouseY();
 
-                // Forward Mouse Position
-                view.FireMouseEvent(new ULMouseEvent
+                if (currentState == AppState.MainMenu)
                 {
-                    Type = ULMouseEventType.MouseMoved,
-                    X = mouseX,
-                    Y = mouseY,
-                    Button = ULMouseEventButton.None
-                });
-
-                // Forward Mouse Buttons
-                if (Raylib.IsMouseButtonPressed(MouseButton.Left))
-                {
-                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseDown, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
-                }
-                if (Raylib.IsMouseButtonReleased(MouseButton.Left))
-                {
-                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
-                }
-                if (Raylib.IsMouseButtonPressed(MouseButton.Right))
-                {
-                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseDown, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Right });
-                }
-                if (Raylib.IsMouseButtonReleased(MouseButton.Right))
-                {
-                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Right });
-                }
-
-                // Forward Mouse Scroll
-                float wheel = Raylib.GetMouseWheelMove();
-                if (wheel != 0)
-                {
-                    view.FireScrollEvent(new ULScrollEvent
+                    // Forward Mouse Events to Ultralight Menu
+                    view.FireMouseEvent(new ULMouseEvent
                     {
-                        Type = ULScrollEventType.ByPixel,
-                        DeltaX = 0,
-                        DeltaY = (int)(wheel * 100)
+                        Type = ULMouseEventType.MouseMoved,
+                        X = mouseX,
+                        Y = mouseY,
+                        Button = ULMouseEventButton.None
                     });
+
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+                    {
+                        view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseDown, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
+                    }
+                    if (Raylib.IsMouseButtonReleased(MouseButton.Left))
+                    {
+                        view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
+                    }
                 }
 
                 // Global Hotkeys
-                if (Raylib.IsKeyPressed(KeyboardKey.F12) || Raylib.IsKeyPressed(KeyboardKey.S))
+                if (Raylib.IsKeyPressed(KeyboardKey.F12) || Raylib.IsKeyPressed(KeyboardKey.P))
                 {
                     SaveScreenshot("screenshot_manual.png");
                 }
@@ -168,13 +178,72 @@ namespace RaylibUltralightApp
                     {
                         currentState = AppState.MainMenu;
                     }
+                    else
+                    {
+                        currentState = AppState.Playing;
+                    }
                 }
 
-                // 2. Update Ultralight View
+                // 2. Gameplay Updates
+                if (currentState == AppState.Playing)
+                {
+                    // Free camera movement controls
+                    float dt = Raylib.GetFrameTime();
+                    float moveSpeed = 15.0f * dt;
+                    if (Raylib.IsKeyDown(KeyboardKey.LeftShift)) moveSpeed *= 2.0f;
+
+                    Vector3 forward = Vector3.Normalize(camera.Target - camera.Position);
+                    Vector3 right = Vector3.Normalize(Vector3.Cross(forward, camera.Up));
+
+                    if (Raylib.IsKeyDown(KeyboardKey.W))
+                    {
+                        camera.Position += forward * moveSpeed;
+                        camera.Target += forward * moveSpeed;
+                    }
+                    if (Raylib.IsKeyDown(KeyboardKey.S))
+                    {
+                        camera.Position -= forward * moveSpeed;
+                        camera.Target -= forward * moveSpeed;
+                    }
+                    if (Raylib.IsKeyDown(KeyboardKey.D))
+                    {
+                        camera.Position += right * moveSpeed;
+                        camera.Target += right * moveSpeed;
+                    }
+                    if (Raylib.IsKeyDown(KeyboardKey.A))
+                    {
+                        camera.Position -= right * moveSpeed;
+                        camera.Target -= right * moveSpeed;
+                    }
+                    if (Raylib.IsKeyDown(KeyboardKey.Space))
+                    {
+                        camera.Position += camera.Up * moveSpeed;
+                        camera.Target += camera.Up * moveSpeed;
+                    }
+                    if (Raylib.IsKeyDown(KeyboardKey.LeftControl))
+                    {
+                        camera.Position -= camera.Up * moveSpeed;
+                        camera.Target -= camera.Up * moveSpeed;
+                    }
+
+                    // Slow orbit rotation if idle/screenshot mode to show world dynamics
+                    if (screenshotArg)
+                    {
+                        float angle = frameCount * 0.015f;
+                        float dist = 30.0f;
+                        camera.Position = new Vector3(32.0f + (float)Math.Cos(angle) * dist, 24.0f + (float)Math.Sin(angle * 0.5f) * 4.0f, 32.0f + (float)Math.Sin(angle) * dist);
+                        camera.Target = new Vector3(32.0f, 15.0f, 32.0f);
+                    }
+
+                    // Update Chunk Loader around camera position
+                    world.Update(camera.Position);
+                }
+
+                // 3. Update Ultralight View
                 renderer.Update();
                 renderer.Render();
 
-                // 3. Sync Ultralight Surface to Raylib Texture
+                // 4. Sync Ultralight Surface to Raylib Texture
                 ULSurface? surface = view.Surface;
                 if (surface.HasValue)
                 {
@@ -189,37 +258,33 @@ namespace RaylibUltralightApp
                     bitmap.SwapRedBlueChannels();
                 }
 
-                // 4. Update Background Particles
-                for (int i = 0; i < particleCount; i++)
-                {
-                    particleY[i] += particleSpeed[i];
-                    if (particleY[i] > height)
-                    {
-                        particleY[i] = 0;
-                        particleX[i] = rand.Next(0, width);
-                    }
-                }
-
                 // 5. Draw Frame
                 Raylib.BeginDrawing();
-                Raylib.ClearBackground(new Color(15, 20, 32, 255));
-
-                // Draw Raylib Animated Background (Grid + Particles)
-                DrawBackground(width, height, particleX, particleY, particleCount, frameCount);
+                Raylib.ClearBackground(new Color(135, 206, 235, 255)); // Sky Blue
 
                 if (currentState == AppState.Playing)
                 {
-                    // Draw active gameplay scene
-                    DrawGameScene(width, height, frameCount);
-                }
+                    // Draw 3D Voxel World
+                    Raylib.BeginMode3D(camera);
+                    world.Draw();
+                    Raylib.DrawGrid(20, 10.0f);
+                    Raylib.EndMode3D();
 
-                // Draw Ultralight UI Overlay
-                Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
+                    // Draw Voxel HUD Overlay
+                    DrawHUD(world, camera);
+                }
+                else
+                {
+                    // Main Menu Background Particles & UI
+                    Raylib.ClearBackground(new Color(15, 20, 32, 255));
+                    DrawBackground(width, height, particleX, particleY, particleCount, frameCount);
+                    Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
+                }
 
                 Raylib.EndDrawing();
 
                 // Handle CLI --screenshot flag
-                if (screenshotArg && frameCount >= 15)
+                if (screenshotArg && frameCount >= 20)
                 {
                     Console.WriteLine("[CLI] Taking screenshot requested via --screenshot command...");
                     SaveScreenshot("screenshot.png");
@@ -228,6 +293,7 @@ namespace RaylibUltralightApp
             }
 
             // Cleanup
+            world.Cleanup();
             Raylib.UnloadTexture(uiTexture);
             Raylib.CloseWindow();
             Console.WriteLine("Application exited cleanly.");
@@ -252,9 +318,29 @@ namespace RaylibUltralightApp
             }
         }
 
+        private static void DrawHUD(World world, Camera3D camera)
+        {
+            int panelX = 10;
+            int panelY = 10;
+            int panelW = 340;
+            int panelH = 170;
+
+            Raylib.DrawRectangle(panelX, panelY, panelW, panelH, new Color(0, 0, 0, 180));
+            Raylib.DrawRectangleLines(panelX, panelY, panelW, panelH, new Color(0, 220, 255, 200));
+
+            Raylib.DrawText("VOXEL ENGINE - GREEDY MESHING", panelX + 12, panelY + 10, 16, Color.Gold);
+            Raylib.DrawText($"FPS: {Raylib.GetFPS()}", panelX + 12, panelY + 32, 14, Color.Lime);
+            Raylib.DrawText($"Pos: ({camera.Position.X:F1}, {camera.Position.Y:F1}, {camera.Position.Z:F1})", panelX + 12, panelY + 50, 14, Color.White);
+            Raylib.DrawText($"Active Chunks: {world.TotalLoadedChunks} (Render Dist: {world.RenderDistance})", panelX + 12, panelY + 70, 14, Color.SkyBlue);
+            Raylib.DrawText($"Raw Quads: {world.TotalRawQuads:N0}", panelX + 12, panelY + 90, 14, Color.LightGray);
+            Raylib.DrawText($"Greedy Quads: {world.TotalGreedyQuads:N0}", panelX + 12, panelY + 110, 14, Color.Yellow);
+            Raylib.DrawText($"Quad Reduction: {world.QuadReductionPercentage:F1}% saved!", panelX + 12, panelY + 132, 15, Color.Green);
+
+            Raylib.DrawText("[WASD/Space/Ctrl] Move Camera  |  [ESC] Menu", 10, Raylib.GetScreenHeight() - 25, 14, Color.White);
+        }
+
         private static void DrawBackground(int width, int height, float[] px, float[] py, int count, int frame)
         {
-            // Draw grid lines
             Color gridColor = new Color((byte)0, (byte)150, (byte)255, (byte)30);
             int gridSize = 40;
             for (int x = 0; x < width; x += gridSize)
@@ -266,27 +352,18 @@ namespace RaylibUltralightApp
                 Raylib.DrawLine(0, y, width, y, gridColor);
             }
 
-            // Draw floating particles
             for (int i = 0; i < count; i++)
             {
+                py[i] += (float)(Math.Sin(frame * 0.05 + i) * 0.5 + 1.0);
+                if (py[i] > height)
+                {
+                    py[i] = 0;
+                    px[i] = new Random().Next(0, width);
+                }
                 float alpha = (float)(Math.Sin(frame * 0.05 + i) * 0.4 + 0.6);
                 Color particleColor = new Color((byte)0, (byte)210, (byte)255, (byte)(alpha * 200));
-                Raylib.DrawCircleV(new System.Numerics.Vector2(px[i], py[i]), 2.5f, particleColor);
+                Raylib.DrawCircleV(new Vector2(px[i], py[i]), 2.5f, particleColor);
             }
-        }
-
-        private static void DrawGameScene(int width, int height, int frame)
-        {
-            // Render 3D/2D Game world elements behind UI
-            float centerX = width / 2f;
-            float centerY = height / 2f + 50f;
-
-            double time = frame * 0.03;
-            float posX = centerX + (float)Math.Cos(time) * 120f;
-            float posY = centerY + (float)Math.Sin(time) * 60f;
-
-            Raylib.DrawCircle((int)posX, (int)posY, 25, Color.Gold);
-            Raylib.DrawText("GAME ACTIVE! Press ESC for Main Menu", 210, 520, 20, Color.Lime);
         }
 
         public static void SaveScreenshot(string fileName)
@@ -301,7 +378,6 @@ namespace RaylibUltralightApp
             Raylib.TakeScreenshot(relPath);
             Console.WriteLine($"[Screenshot] Saved relative screenshot to: {relPath}");
 
-            // Also check root /screenshot directory
             string rootDir = "/screenshot";
             try
             {
@@ -311,7 +387,6 @@ namespace RaylibUltralightApp
                 }
                 string rootPath = Path.Combine(rootDir, fileName);
 
-                // Copy file to /screenshot/ if created
                 if (File.Exists(relPath))
                 {
                     File.Copy(relPath, rootPath, true);
