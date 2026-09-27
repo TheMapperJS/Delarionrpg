@@ -81,24 +81,22 @@ namespace RaylibUltralightApp
                 }
             };
 
-            // Load Menu HTML
-            string menuHtmlPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "menu.html");
-            if (File.Exists(menuHtmlPath))
-            {
-                view.HTML = File.ReadAllText(menuHtmlPath);
-            }
-            else
-            {
-                Console.WriteLine("Warning: assets/menu.html not found, fallback to default HTML.");
-                view.HTML = "<html><body style='color:white;background:rgba(0,0,0,0.8);'><h1>VOXEL QUEST</h1><button onclick='console.log(\"action:start\")'>Start</button></body></html>";
-            }
-
             bool isPageLoaded = false;
             view.OnFinishLoading += (frameId, isMainFrame, url) =>
             {
                 isPageLoaded = true;
                 Console.WriteLine("Ultralight page loading finished.");
             };
+
+            // Load initial state HTML (assets/hud.html for Playing, assets/menu.html for MainMenu)
+            if (screenshotArg)
+            {
+                SetAppState(AppState.Playing, view);
+            }
+            else
+            {
+                SetAppState(AppState.MainMenu, view);
+            }
 
             // Wait brief moment for initial DOM ready
             int loadWaitCounter = 0;
@@ -131,40 +129,30 @@ namespace RaylibUltralightApp
 
             int frameCount = 0;
 
-            // Automatically enter Playing mode when --screenshot is passed to showcase 3D Voxel world
-            if (screenshotArg)
-            {
-                currentState = AppState.Playing;
-            }
-
             // Main Application Loop
             while (!Raylib.WindowShouldClose() && !shouldExit)
             {
                 frameCount++;
 
-                // 1. Process UI Inputs
+                // 1. Process UI Mouse Inputs
                 int mouseX = Raylib.GetMouseX();
                 int mouseY = Raylib.GetMouseY();
 
-                if (currentState == AppState.MainMenu)
+                view.FireMouseEvent(new ULMouseEvent
                 {
-                    // Forward Mouse Events to Ultralight Menu
-                    view.FireMouseEvent(new ULMouseEvent
-                    {
-                        Type = ULMouseEventType.MouseMoved,
-                        X = mouseX,
-                        Y = mouseY,
-                        Button = ULMouseEventButton.None
-                    });
+                    Type = ULMouseEventType.MouseMoved,
+                    X = mouseX,
+                    Y = mouseY,
+                    Button = ULMouseEventButton.None
+                });
 
-                    if (Raylib.IsMouseButtonPressed(MouseButton.Left))
-                    {
-                        view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseDown, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
-                    }
-                    if (Raylib.IsMouseButtonReleased(MouseButton.Left))
-                    {
-                        view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
-                    }
+                if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+                {
+                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseDown, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
+                }
+                if (Raylib.IsMouseButtonReleased(MouseButton.Left))
+                {
+                    view.FireMouseEvent(new ULMouseEvent { Type = ULMouseEventType.MouseUp, X = mouseX, Y = mouseY, Button = ULMouseEventButton.Left });
                 }
 
                 // Global Hotkeys
@@ -176,11 +164,11 @@ namespace RaylibUltralightApp
                 {
                     if (currentState == AppState.Playing)
                     {
-                        currentState = AppState.MainMenu;
+                        SetAppState(AppState.MainMenu, view);
                     }
                     else
                     {
-                        currentState = AppState.Playing;
+                        SetAppState(AppState.Playing, view);
                     }
                 }
 
@@ -270,12 +258,15 @@ namespace RaylibUltralightApp
                     Raylib.DrawGrid(20, 10.0f);
                     Raylib.EndMode3D();
 
-                    // Draw Voxel HUD Overlay
+                    // Draw RPG HUD Overlay (assets/hud.html UI)
+                    Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
+
+                    // Draw Voxel Engine Stats
                     DrawHUD(world, camera);
                 }
                 else
                 {
-                    // Main Menu Background Particles & UI
+                    // Main Menu Background Particles & HTML Main Menu UI (assets/menu.html UI)
                     Raylib.ClearBackground(new Color(15, 20, 32, 255));
                     DrawBackground(width, height, particleX, particleY, particleCount, frameCount);
                     Raylib.DrawTexture(uiTexture, 0, 0, Color.White);
@@ -299,17 +290,50 @@ namespace RaylibUltralightApp
             Console.WriteLine("Application exited cleanly.");
         }
 
+        private static void SetAppState(AppState newState, View view)
+        {
+            currentState = newState;
+            if (currentState == AppState.MainMenu)
+            {
+                string menuHtmlPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "menu.html");
+                if (File.Exists(menuHtmlPath))
+                {
+                    view.HTML = File.ReadAllText(menuHtmlPath);
+                }
+                else
+                {
+                    view.HTML = "<html><body style=\"color:white;background:rgba(0,0,0,0.8);\"><h1>VOXEL QUEST</h1><button onclick=\"console.log('action:start')\">Start</button></body></html>";
+                }
+            }
+            else if (currentState == AppState.Playing)
+            {
+                string hudHtmlPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", "hud.html");
+                if (File.Exists(hudHtmlPath))
+                {
+                    view.HTML = File.ReadAllText(hudHtmlPath);
+                }
+            }
+        }
+
         private static void HandleUIAction(string action, View view)
         {
             if (action == "start")
             {
                 Console.WriteLine("[RPG UI] 'Enter Voxel Realm' clicked! Switching state to Playing.");
-                currentState = AppState.Playing;
+                SetAppState(AppState.Playing, view);
             }
             else if (action == "exit")
             {
-                Console.WriteLine("[RPG UI] 'Abandon Realm' clicked! Closing application.");
-                shouldExit = true;
+                if (currentState == AppState.Playing)
+                {
+                    Console.WriteLine("[RPG UI] 'Main Menu' clicked! Returning to Main Menu.");
+                    SetAppState(AppState.MainMenu, view);
+                }
+                else
+                {
+                    Console.WriteLine("[RPG UI] 'Abandon Realm' clicked! Closing application.");
+                    shouldExit = true;
+                }
             }
             else if (action.StartsWith("volume:"))
             {
