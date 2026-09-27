@@ -303,18 +303,42 @@ namespace RaylibUltralightApp
         {
             if (action == "start")
             {
-                Console.WriteLine("Start Game button clicked! Switching state to Playing.");
+                Console.WriteLine("[RPG UI] 'Enter Voxel Realm' clicked! Switching state to Playing.");
                 currentState = AppState.Playing;
             }
             else if (action == "exit")
             {
-                Console.WriteLine("Exit button clicked! Closing application.");
+                Console.WriteLine("[RPG UI] 'Abandon Realm' clicked! Closing application.");
                 shouldExit = true;
             }
             else if (action.StartsWith("volume:"))
             {
                 string volStr = action.Substring("volume:".Length);
-                Console.WriteLine($"Volume changed to: {volStr}%");
+                Console.WriteLine($"[RPG UI] Master volume set to: {volStr}%");
+            }
+            else if (action.StartsWith("equipItem:"))
+            {
+                string item = action.Substring("equipItem:".Length);
+                Console.WriteLine($"[RPG UI] Relic equipped/inspected: {item}");
+            }
+            else if (action.StartsWith("quests:"))
+            {
+                string quest = action.Substring("quests:".Length);
+                Console.WriteLine($"[RPG UI] Quest selected in codex: {quest}");
+            }
+            else if (action.StartsWith("openModal:"))
+            {
+                string modalId = action.Substring("openModal:".Length);
+                Console.WriteLine($"[RPG UI] Opened RPG panel modal: {modalId}");
+            }
+            else if (action.StartsWith("closeModal:"))
+            {
+                string modalId = action.Substring("closeModal:".Length);
+                Console.WriteLine($"[RPG UI] Closed RPG panel modal: {modalId}");
+            }
+            else
+            {
+                Console.WriteLine($"[RPG UI] Action received: {action}");
             }
         }
 
