@@ -16,6 +16,7 @@ namespace RaylibUltralightApp
         public int ChunkZ { get; }
 
         private readonly BlockType[,,] voxels = new BlockType[SIZE_X, SIZE_Y, SIZE_Z];
+        private readonly World? world;
 
         public Mesh Mesh { get; private set; }
         public Model Model { get; private set; }
@@ -24,12 +25,34 @@ namespace RaylibUltralightApp
         public int RawQuadCount { get; private set; }
         public int GreedyQuadCount { get; private set; }
 
-        public Chunk(int chunkX, int chunkZ)
+        public Chunk(int chunkX, int chunkZ, World? world = null)
         {
             ChunkX = chunkX;
             ChunkZ = chunkZ;
+            this.world = world;
             GenerateTerrain();
             BuildMesh();
+        }
+
+        public static BlockType GetTerrainBlock(int wx, int wy, int wz)
+        {
+            if (wy < 0 || wy >= SIZE_Y) return BlockType.Air;
+            if (wy == 0) return BlockType.Bedrock;
+
+            float heightVal = 14.0f + (float)(
+                Math.Sin(wx * 0.07f) * 5.0f +
+                Math.Cos(wz * 0.07f) * 5.0f +
+                Math.Sin((wx + wz) * 0.12f) * 3.0f
+            );
+
+            int height = Math.Clamp((int)heightVal, 3, SIZE_Y - 6);
+
+            if (wy < height - 3) return BlockType.Stone;
+            if (wy < height) return BlockType.Dirt;
+            if (wy == height) return (height <= 9) ? BlockType.Sand : BlockType.Grass;
+            if (wy <= 9 && height <= 9) return BlockType.Water;
+
+            return BlockType.Air;
         }
 
         private void GenerateTerrain()
@@ -125,11 +148,121 @@ namespace RaylibUltralightApp
 
         public BlockType GetBlock(int x, int y, int z)
         {
-            if (x < 0 || x >= SIZE_X || y < 0 || y >= SIZE_Y || z < 0 || z >= SIZE_Z)
+            if (x >= 0 && x < SIZE_X && y >= 0 && y < SIZE_Y && z >= 0 && z < SIZE_Z)
             {
-                return BlockType.Air;
+                return voxels[x, y, z];
             }
-            return voxels[x, y, z];
+
+            int worldX = ChunkX * SIZE_X + x;
+            int worldZ = ChunkZ * SIZE_Z + z;
+
+            if (world != null)
+            {
+                return world.GetBlock(worldX, y, worldZ);
+            }
+
+            return GetTerrainBlock(worldX, y, worldZ);
+        }
+
+        public bool IsOpaque(int x, int y, int z)
+        {
+            return !BlockHelper.IsTransparent(GetBlock(x, y, z));
+        }
+
+        private byte CalculateVertexAO(bool side1, bool side2, bool corner)
+        {
+            if (side1 && side2) return 0; // Fully occluded by 2 side blocks
+            int count = (side1 ? 1 : 0) + (side2 ? 1 : 0) + (corner ? 1 : 0);
+            return (byte)(3 - count);
+        }
+
+        public (byte ao0, byte ao1, byte ao2, byte ao3) GetFaceAO(int x, int y, int z, int dir)
+        {
+            byte ao0, ao1, ao2, ao3;
+
+            switch (dir)
+            {
+                case 0: // -Z
+                    // v0: (-X, -Y), v1: (-X, +Y), v2: (+X, +Y), v3: (+X, -Y)
+                    ao0 = CalculateVertexAO(IsOpaque(x - 1, y, z - 1), IsOpaque(x, y - 1, z - 1), IsOpaque(x - 1, y - 1, z - 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x - 1, y, z - 1), IsOpaque(x, y + 1, z - 1), IsOpaque(x - 1, y + 1, z - 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x + 1, y, z - 1), IsOpaque(x, y + 1, z - 1), IsOpaque(x + 1, y + 1, z - 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x + 1, y, z - 1), IsOpaque(x, y - 1, z - 1), IsOpaque(x + 1, y - 1, z - 1));
+                    break;
+
+                case 1: // +Z
+                    // v0: (-X, -Y), v1: (+X, -Y), v2: (+X, +Y), v3: (-X, +Y)
+                    ao0 = CalculateVertexAO(IsOpaque(x - 1, y, z + 1), IsOpaque(x, y - 1, z + 1), IsOpaque(x - 1, y - 1, z + 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x + 1, y, z + 1), IsOpaque(x, y - 1, z + 1), IsOpaque(x + 1, y - 1, z + 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x + 1, y, z + 1), IsOpaque(x, y + 1, z + 1), IsOpaque(x + 1, y + 1, z + 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x - 1, y, z + 1), IsOpaque(x, y + 1, z + 1), IsOpaque(x - 1, y + 1, z + 1));
+                    break;
+
+                case 2: // -X
+                    // v0: (-Z, -Y), v1: (+Z, -Y), v2: (+Z, +Y), v3: (-Z, +Y)
+                    ao0 = CalculateVertexAO(IsOpaque(x - 1, y, z - 1), IsOpaque(x - 1, y - 1, z), IsOpaque(x - 1, y - 1, z - 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x - 1, y, z + 1), IsOpaque(x - 1, y - 1, z), IsOpaque(x - 1, y - 1, z + 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x - 1, y, z + 1), IsOpaque(x - 1, y + 1, z), IsOpaque(x - 1, y + 1, z + 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x - 1, y, z - 1), IsOpaque(x - 1, y + 1, z), IsOpaque(x - 1, y + 1, z - 1));
+                    break;
+
+                case 3: // +X
+                    // v0: (+Z, -Y), v1: (-Z, -Y), v2: (-Z, +Y), v3: (+Z, +Y)
+                    ao0 = CalculateVertexAO(IsOpaque(x + 1, y, z + 1), IsOpaque(x + 1, y - 1, z), IsOpaque(x + 1, y - 1, z + 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x + 1, y, z - 1), IsOpaque(x + 1, y - 1, z), IsOpaque(x + 1, y - 1, z - 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x + 1, y, z - 1), IsOpaque(x + 1, y + 1, z), IsOpaque(x + 1, y + 1, z - 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x + 1, y, z + 1), IsOpaque(x + 1, y + 1, z), IsOpaque(x + 1, y + 1, z + 1));
+                    break;
+
+                case 4: // -Y
+                    // v0: (-X, -Z), v1: (+X, -Z), v2: (+X, +Z), v3: (-X, +Z)
+                    ao0 = CalculateVertexAO(IsOpaque(x - 1, y - 1, z), IsOpaque(x, y - 1, z - 1), IsOpaque(x - 1, y - 1, z - 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x + 1, y - 1, z), IsOpaque(x, y - 1, z - 1), IsOpaque(x + 1, y - 1, z - 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x + 1, y - 1, z), IsOpaque(x, y - 1, z + 1), IsOpaque(x + 1, y - 1, z + 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x - 1, y - 1, z), IsOpaque(x, y - 1, z + 1), IsOpaque(x - 1, y - 1, z + 1));
+                    break;
+
+                case 5: // +Y
+                default:
+                    // v0: (-X, +Z), v1: (+X, +Z), v2: (+X, -Z), v3: (-X, -Z)
+                    ao0 = CalculateVertexAO(IsOpaque(x - 1, y + 1, z), IsOpaque(x, y + 1, z + 1), IsOpaque(x - 1, y + 1, z + 1));
+                    ao1 = CalculateVertexAO(IsOpaque(x + 1, y + 1, z), IsOpaque(x, y + 1, z + 1), IsOpaque(x + 1, y + 1, z + 1));
+                    ao2 = CalculateVertexAO(IsOpaque(x + 1, y + 1, z), IsOpaque(x, y + 1, z - 1), IsOpaque(x + 1, y + 1, z - 1));
+                    ao3 = CalculateVertexAO(IsOpaque(x - 1, y + 1, z), IsOpaque(x, y + 1, z - 1), IsOpaque(x - 1, y + 1, z - 1));
+                    break;
+            }
+
+            return (ao0, ao1, ao2, ao3);
+        }
+
+        private static float GetAOFactor(byte ao)
+        {
+            switch (ao)
+            {
+                case 0: return 0.40f;
+                case 1: return 0.60f;
+                case 2: return 0.80f;
+                case 3:
+                default: return 1.00f;
+            }
+        }
+
+        private struct MaskCell
+        {
+            public BlockType Block;
+            public byte AO0;
+            public byte AO1;
+            public byte AO2;
+            public byte AO3;
+
+            public bool Equals(MaskCell other)
+            {
+                return Block == other.Block &&
+                       AO0 == other.AO0 &&
+                       AO1 == other.AO1 &&
+                       AO2 == other.AO2 &&
+                       AO3 == other.AO3;
+            }
         }
 
         private struct Quad
@@ -139,6 +272,10 @@ namespace RaylibUltralightApp
             public float Height;     // v dimension length
             public int Direction;    // 0: -Z, 1: +Z, 2: -X, 3: +X, 4: -Y, 5: +Y
             public BlockType Block;
+            public byte AO0;
+            public byte AO1;
+            public byte AO2;
+            public byte AO3;
         }
 
         private unsafe void BuildMesh()
@@ -212,10 +349,10 @@ namespace RaylibUltralightApp
                         break;
                 }
 
-                Color col = BlockHelper.GetBlockColor(quad.Block, face);
-                col.R = (byte)Math.Clamp((int)(col.R * shade), 0, 255);
-                col.G = (byte)Math.Clamp((int)(col.G * shade), 0, 255);
-                col.B = (byte)Math.Clamp((int)(col.B * shade), 0, 255);
+                Color baseCol = BlockHelper.GetBlockColor(quad.Block, face);
+                baseCol.R = (byte)Math.Clamp((int)(baseCol.R * shade), 0, 255);
+                baseCol.G = (byte)Math.Clamp((int)(baseCol.G * shade), 0, 255);
+                baseCol.B = (byte)Math.Clamp((int)(baseCol.B * shade), 0, 255);
 
                 // Define 4 quad vertices
                 Vector3 v0, v1, v2, v3;
@@ -268,6 +405,7 @@ namespace RaylibUltralightApp
                 }
 
                 Vector3[] verts = new Vector3[] { v0, v1, v2, v3 };
+                byte[] aoValues = new byte[] { quad.AO0, quad.AO1, quad.AO2, quad.AO3 };
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -279,20 +417,34 @@ namespace RaylibUltralightApp
                     normals[nIdx++] = normal.Y;
                     normals[nIdx++] = normal.Z;
 
-                    colors[cIdx++] = col.R;
-                    colors[cIdx++] = col.G;
-                    colors[cIdx++] = col.B;
-                    colors[cIdx++] = col.A;
+                    float aoMult = GetAOFactor(aoValues[i]);
+                    colors[cIdx++] = (byte)Math.Clamp((int)(baseCol.R * aoMult), 0, 255);
+                    colors[cIdx++] = (byte)Math.Clamp((int)(baseCol.G * aoMult), 0, 255);
+                    colors[cIdx++] = (byte)Math.Clamp((int)(baseCol.B * aoMult), 0, 255);
+                    colors[cIdx++] = baseCol.A;
                 }
 
-                // Quad triangles (0, 1, 2) and (0, 2, 3)
-                indices[iIdx++] = (ushort)(baseVertIndex + 0);
-                indices[iIdx++] = (ushort)(baseVertIndex + 1);
-                indices[iIdx++] = (ushort)(baseVertIndex + 2);
+                // Quad anisotropy diagonal flipping: flip diagonal if ao0 + ao2 < ao1 + ao3
+                if (quad.AO0 + quad.AO2 < quad.AO1 + quad.AO3)
+                {
+                    indices[iIdx++] = (ushort)(baseVertIndex + 0);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 1);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 3);
 
-                indices[iIdx++] = (ushort)(baseVertIndex + 0);
-                indices[iIdx++] = (ushort)(baseVertIndex + 2);
-                indices[iIdx++] = (ushort)(baseVertIndex + 3);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 1);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 2);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 3);
+                }
+                else
+                {
+                    indices[iIdx++] = (ushort)(baseVertIndex + 0);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 1);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 2);
+
+                    indices[iIdx++] = (ushort)(baseVertIndex + 0);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 2);
+                    indices[iIdx++] = (ushort)(baseVertIndex + 3);
+                }
             }
 
             Mesh mesh = new Mesh
@@ -325,7 +477,7 @@ namespace RaylibUltralightApp
 
                 for (int slice = 0; slice < mainAxisMax; slice++)
                 {
-                    BlockType[,] mask = new BlockType[uMax, vMax];
+                    MaskCell[,] mask = new MaskCell[uMax, vMax];
 
                     // Populate mask for current slice
                     for (int u = 0; u < uMax; u++)
@@ -352,7 +504,15 @@ namespace RaylibUltralightApp
 
                                 if (neighborTransparent)
                                 {
-                                    mask[u, v] = currentBlock;
+                                    var (ao0, ao1, ao2, ao3) = GetFaceAO(x, y, z, dir);
+                                    mask[u, v] = new MaskCell
+                                    {
+                                        Block = currentBlock,
+                                        AO0 = ao0,
+                                        AO1 = ao1,
+                                        AO2 = ao2,
+                                        AO3 = ao3
+                                    };
                                     rawCount++;
                                 }
                             }
@@ -364,12 +524,12 @@ namespace RaylibUltralightApp
                     {
                         for (int u = 0; u < uMax; u++)
                         {
-                            BlockType type = mask[u, v];
-                            if (type == BlockType.Air) continue;
+                            MaskCell cell = mask[u, v];
+                            if (cell.Block == BlockType.Air) continue;
 
                             // Compute width w
                             int w = 1;
-                            while (u + w < uMax && mask[u + w, v] == type)
+                            while (u + w < uMax && mask[u + w, v].Equals(cell))
                             {
                                 w++;
                             }
@@ -381,7 +541,7 @@ namespace RaylibUltralightApp
                             {
                                 for (int i = 0; i < w; i++)
                                 {
-                                    if (mask[u + i, v + h] != type)
+                                    if (!mask[u + i, v + h].Equals(cell))
                                     {
                                         canExpand = false;
                                         break;
@@ -401,7 +561,11 @@ namespace RaylibUltralightApp
                                 Width = w,
                                 Height = h,
                                 Direction = dir,
-                                Block = type
+                                Block = cell.Block,
+                                AO0 = cell.AO0,
+                                AO1 = cell.AO1,
+                                AO2 = cell.AO2,
+                                AO3 = cell.AO3
                             });
 
                             // Clear mask for merged cells
@@ -409,7 +573,7 @@ namespace RaylibUltralightApp
                             {
                                 for (int i = 0; i < w; i++)
                                 {
-                                    mask[u + i, v + j] = BlockType.Air;
+                                    mask[u + i, v + j] = default;
                                 }
                             }
 
